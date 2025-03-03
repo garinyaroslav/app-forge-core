@@ -1,5 +1,3 @@
-# from rest_framework.views import APIView
-# from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework import generics, status
 from rest_framework.response import Response
 from ..serializers.register_serializers import ConsumerSerializer
@@ -22,15 +20,3 @@ class RegisterView(generics.CreateAPIView):
             'refresh': str(refresh),
             'access': str(access_token),
         }, status=status.HTTP_201_CREATED)
-
-
-# class ProtectedView(APIView):
-#     permission_classes = [IsAdminUser]
-#     # permission_classes = [IsAuthenticated]
-#
-#     def get(self, request):
-#         content = {
-#             'message': 'Это защищенный эндпоинт!',
-#             'user': str(request.user),
-#         }
-#         return Response(content)
