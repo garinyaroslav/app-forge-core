@@ -1,0 +1,6 @@
+{
+    "include": ["core"],
+    "exclude": ["**/node_modules", "**/__pycache__"],
+    "venvPath": "..",
+    "venv": "app-forge-core"
+}
