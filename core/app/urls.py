@@ -2,6 +2,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.urls import path
 from .views.register_views import RegisterView
 from .views.consumer_views import ConsumerView
+from .views.genre_views import GerneView
+from .views.software_views import SoftwareView
 
 
 urlpatterns = [
@@ -12,4 +14,10 @@ urlpatterns = [
 
     # consumer
     path('consumer/', ConsumerView.as_view(), name='consumer'),
+
+    # genre
+    path('genre/', GerneView.as_view(), name='genre'),
+
+    # software
+    path('software/', SoftwareView.as_view(), name='software'),
 ]
