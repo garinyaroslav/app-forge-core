@@ -3,8 +3,8 @@ from django.urls import path
 from .views.register_views import RegisterView
 from .views.consumer_views import ConsumerView
 from .views.genre_views import GerneView
-from .views.software_views import SoftwareView
-
+from .views.software_views import SoftwareView, get_products_list
+from .views.review_views import ReviewView
 
 urlpatterns = [
     # register routes
@@ -20,4 +20,8 @@ urlpatterns = [
 
     # software
     path('software/', SoftwareView.as_view(), name='software'),
+    path('software/list/', get_products_list, name='products_list'),
+
+    # review
+    path('review/', ReviewView.as_view(), name='review'),
 ]

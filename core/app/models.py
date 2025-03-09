@@ -59,11 +59,12 @@ class SoftwareProduct(models.Model):
     description = models.TextField()
     developer_name = models.CharField(max_length=255)
     rel_date = models.DateTimeField()
-    image = models.BinaryField()
+    image = models.TextField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
     copies_sold = models.IntegerField()
     rating = models.DecimalField(max_digits=3, decimal_places=2)
-    genres = models.ManyToManyField(Genre, related_name='products')
+    genre = models.ForeignKey(
+        Genre, on_delete=models.CASCADE, related_name='products')
 
     def __str__(self):
         return self.title
