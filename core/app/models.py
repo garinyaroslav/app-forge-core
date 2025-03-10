@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.utils import timezone
 
 
 class Consumer(AbstractUser):
@@ -39,7 +40,7 @@ class Review(models.Model):
 class Library(models.Model):
     product = models.ForeignKey('SoftwareProduct', on_delete=models.CASCADE)
     consumer = models.ForeignKey(Consumer, on_delete=models.CASCADE)
-    added_date = models.DateTimeField()
+    added_date = models.DateTimeField(default=timezone.now)
 
 
 class CartItem(models.Model):
