@@ -5,9 +5,9 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db import models
 from ..serializers.software_serializers import SoftwareSerializer
-from ..models import SoftwareProduct
+from ..models import SoftwareProduct, Cart, CartItem, Library
 from rest_framework.decorators import api_view, permission_classes
-from django.db.models import F
+from django.db.models import F, OuterRef, Subquery
 
 
 class SoftwareView(APIView):
@@ -170,3 +170,93 @@ def get_products_list(request):
                 {"error": f"An error occurred: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def get_cart_products_by_user_id(request):
+    user_id = request.query_params.get('id')
+
+    try:
+        # SELECT product.*, app_cartitem.id AS cart_item_id FROM app_softwareproduct AS product JOIN app_cartitem ON product.id = app_cartitem.product_id WHERE app_cartitem.cart_id = (SELECT id FROM app_cart WHERE consumer_id=$1);
+
+        cart_subquery = Cart.objects.filter(consumer_id=user_id).values('id')
+
+        products_with_cart_items = SoftwareProduct.objects.filter(
+            cartitem__cart_id__in=Subquery(cart_subquery)
+        ).annotate(
+            cart_item_id=Subquery(
+                CartItem.objects.filter(
+                    product_id=OuterRef('id'),
+                    cart_id__in=Subquery(cart_subquery)
+                ).values('id')[:1]
+            )
+        ).values(
+            'id', 'title', 'description', 'developer_name', 'rel_date', 'image', 'copies_sold', 'rating', 'cart_item_id'
+        )
+
+        return Response(products_with_cart_items, status=status.HTTP_200_OK)
+
+    except SoftwareProduct.DoesNotExist:
+        return Response(
+            {"error": "Product not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAdminUser])
+def delete_cart_items_by_user_id(request):
+    user_id = request.query_params.get('id')
+
+    try:
+        # DELETE FROM app_cartitem WHERE cart_id = (SELECT id FROM app_cart WHERE consumer_id = $1);
+        cart_subquery = Cart.objects.filter(consumer_id=user_id).values('id')
+
+        deleted_count, _ = CartItem.objects.filter(
+            cart_id__in=Subquery(cart_subquery)).delete()
+
+        return Response(
+            {"message": f"Deleted {deleted_count} cart items"},
+            status=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+def get_library_item(request):
+    consumer_id = request.query_params.get('consumer_id')
+    product_id = request.query_params.get('product_id')
+
+    if not consumer_id or not product_id:
+        return Response(
+            {"error": "Both consumer_id and product_id are required"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        library_items = Library.objects.filter(
+            consumer_id=consumer_id, product_id=product_id)
+
+        results = [
+            {
+                "id": item.id,
+                "consumer_id": item.consumer_id,
+                "product_id": item.product_id,
+                "added_date": item.added_date,
+            }
+            for item in library_items
+        ]
+
+        return Response(results, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
