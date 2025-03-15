@@ -17,3 +17,8 @@ class SoftwareSerializer(serializers.ModelSerializer):
     class Meta:
         model = SoftwareProduct
         fields = "__all__"
+
+
+class CartItemCreateSerializer(serializers.Serializer):
+    consumer_id = serializers.IntegerField()
+    product_id = serializers.IntegerField()

@@ -4,8 +4,8 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
 from django.db import models
-from ..serializers.software_serializers import SoftwareSerializer
-from ..models import SoftwareProduct, Cart, CartItem, Library
+from ..serializers.software_serializers import SoftwareSerializer, CartItemCreateSerializer
+from ..models import SoftwareProduct, Cart, CartItem, Library, Review
 from rest_framework.decorators import api_view, permission_classes
 from django.db.models import F, OuterRef, Subquery
 
@@ -240,6 +240,7 @@ def get_library_item(request):
         )
 
     try:
+        # SELECT * FROM app_library WHERE consumer_id = 7 AND product_id = 13
         library_items = Library.objects.filter(
             consumer_id=consumer_id, product_id=product_id)
 
@@ -260,3 +261,122 @@ def get_library_item(request):
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def get_library_items(request):
+    user_id = request.query_params.get('consumer_id')
+
+    try:
+        # SELECT product.*, app_library.added_date, app_genre.name FROM app_softwareproduct as product
+        # JOIN app_library ON product.id = app_library.product_id
+        # JOIN app_genre ON product.genre_id = app_genre.id
+        # WHERE app_library.consumer_id = $1;
+
+        products = SoftwareProduct.objects.filter(
+            library__consumer_id=user_id
+        ).annotate(
+            genre_name=F('genre__name'),
+            added_date=F('library__added_date')
+        ).values(
+            'id', 'title', 'description', 'developer_name', 'rel_date', 'image', 'price', 'copies_sold', 'rating', 'genre_name', 'added_date'
+        )
+
+        return Response(products, status=status.HTTP_200_OK)
+
+    except SoftwareProduct.DoesNotExist:
+        return Response(
+            {"error": "Product not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+
+class ProductUserCart(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        consumer_id = request.query_params.get('consumer_id')
+        product_id = request.query_params.get('product_id')
+
+        try:
+            # SELECT id FROM app_cartitem WHERE cart_id = (SELECT id FROM app_cart WHERE consumer_id = $1) AND product_id = $2;
+            cart_subquery = Cart.objects.filter(
+                consumer_id=consumer_id
+            ).values('id')
+
+            cart_item_id = CartItem.objects.filter(
+                cart_id=Subquery(cart_subquery),
+                product_id=product_id
+            ).values('id')
+
+            return Response(cart_item_id, status=status.HTTP_200_OK)
+
+        except SoftwareProduct.DoesNotExist:
+            return Response(
+                {"error": "Product not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+    def post(self, request):
+        # INSERT INTO app_cartitem("cart_id", "product_id") VALUES ((SELECT id FROM app_cart WHERE consumer_id = $1), $2);
+        serializer = CartItemCreateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        consumer_id = serializer.validated_data['consumer_id']
+        product_id = serializer.validated_data['product_id']
+
+        try:
+            cart = Cart.objects.get(consumer_id=consumer_id)
+        except Cart.DoesNotExist:
+            return Response(
+                {"error": "Cart not found for the given consumer_id."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        try:
+            cart_item = CartItem.objects.create(
+                cart=cart, product_id=product_id)
+        except Exception as e:
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        return Response(
+            {"message": "CartItem created successfully.",
+                "cart_item_id": cart_item.id},
+            status=status.HTTP_201_CREATED
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def get_rewiews_by_product_id(request):
+    product_id = request.query_params.get('product_id')
+    # SELECT R.*, C.first_name, C.last_name FROM app_review AS R JOIN app_consumer AS C ON R.consumer_id = C."id" WHERE R.product_id = $1;
+
+    reviews = Review.objects.filter(product_id=product_id).values(
+        'id', 'text_comment', 'rating', 'consumer__first_name', 'consumer__last_name'
+    )
+
+    reviews_data = list(reviews)
+
+    return Response(reviews_data, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def get_rewiew_by_product_id_and_user_id(request):
+    product_id = request.query_params.get('product_id')
+    consumer_id = request.query_params.get('consumer_id')
+    # SELECT R.*, C.first_name, C.last_name FROM app_review AS R JOIN app_consumer AS C ON R.consumer_id = C.id WHERE R.product_id = $1 AND R.consumer_id = $2;
+
+    reviews = Review.objects.filter(product_id=product_id, consumer_id=consumer_id).values(
+        'id', 'text_comment', 'rating', 'consumer__first_name', 'consumer__last_name'
+    )
+
+    reviews_data = list(reviews)
+
+    return Response(reviews_data, status=status.HTTP_200_OK)
