@@ -7,13 +7,11 @@ class ConsumerSerializer(serializers.ModelSerializer):
         model = Consumer
         fields = ['id',
                   'email',
+                  'username',
                   'first_name',
                   'last_name',
                   'password',
-                  # 'last_login',
-                  # 'is_superuser',
                   'is_staff',
-                  # 'is_active',
                   'date_joined',
                   ]
         extra_kwargs = {

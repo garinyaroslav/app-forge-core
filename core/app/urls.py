@@ -1,4 +1,4 @@
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
 from django.urls import path
 from .views.register_views import RegisterView
 from .views.consumer_views import ConsumerView
@@ -8,10 +8,11 @@ from .views.review_views import ReviewView
 from .views.library_views import LibraryView
 from .views.cart_views import CartView
 from .views.cart_item_views import CartItemView
+from .views.token_obtain_views import MyTokenObtainPairView
 
 urlpatterns = [
     # register routes
-    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/', MyTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('register/', RegisterView.as_view(), name='register'),
 
