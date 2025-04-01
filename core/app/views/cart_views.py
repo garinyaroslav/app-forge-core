@@ -12,6 +12,7 @@ class CartView(APIView):
     def get(self, request, *args, **kwargs):
         cart_id = request.query_params.get('id')
         search_query = request.query_params.get('search')
+        print(search_query)
 
         if cart_id:
             try:
@@ -26,8 +27,8 @@ class CartView(APIView):
         elif search_query:
             try:
                 searched_id = int(search_query)
-                libraries = Cart.objects.filter(consumer_id=searched_id)
-                serializer = CartSerializer(libraries, many=True)
+                cart_items = Cart.objects.filter(consumer=searched_id)
+                serializer = CartSerializer(cart_items, many=True)
                 return Response(serializer.data, status=status.HTTP_200_OK)
             except ValueError:
                 return Response(
@@ -35,8 +36,8 @@ class CartView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
         else:
-            libraries = Cart.objects.all()
-            serializer = CartSerializer(libraries, many=True)
+            cart_items = Cart.objects.all()
+            serializer = CartSerializer(cart_items, many=True)
             return Response(serializer.data)
 
     def post(self, request, format=None):

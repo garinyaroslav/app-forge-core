@@ -1,6 +1,6 @@
 import base64
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from django.db import models
@@ -120,62 +120,33 @@ class SoftwareView(APIView):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def get_products_list(request):
-    product_id = request.query_params.get('id')
+    try:
+        # SELECT product.*, genre.name FROM app_softwareproduct AS product JOIN app_genre AS genre ON genre.id = product.genre_id;
+        products = SoftwareProduct.objects.annotate(
+            genre_name=F('genre__name')
+        ).values(
+            'id', 'title', 'description', 'developer_name', 'rel_date',
+            'image', 'price', 'copies_sold', 'rating', 'genre_id', 'genre_name'
+        )
 
-    if product_id:
-        try:
-            # SELECT product.*, genre.name FROM app_softwareproduct AS product JOIN app_genre AS genre ON genre.id = product.genre_id where product.id = 9;
-            product = SoftwareProduct.objects.select_related(
-                'genre').get(id=product_id)
+        result = list(products)
 
-            result = {
-                'id': product.id,
-                'title': product.title,
-                'description': product.description,
-                'developer_name': product.developer_name,
-                'rel_date': product.rel_date,
-                'image': product.image,
-                'price': product.price,
-                'copies_sold': product.copies_sold,
-                'rating': product.rating,
-                'genre_id': product.genre_id,
-                'genre_name': product.genre.name,
-            }
+        return Response(result, status=status.HTTP_200_OK)
 
-            return Response(result, status=status.HTTP_200_OK)
-
-        except SoftwareProduct.DoesNotExist:
-            return Response(
-                {"error": "Product not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
-    else:
-        try:
-            # SELECT product.*, genre.name FROM app_softwareproduct AS product JOIN app_genre AS genre ON genre.id = product.genre_id;
-            products = SoftwareProduct.objects.annotate(
-                genre_name=F('genre__name')
-            ).values(
-                'id', 'title', 'description', 'developer_name', 'rel_date',
-                'image', 'price', 'copies_sold', 'rating', 'genre_id', 'genre_name'
-            )
-
-            result = list(products)
-
-            return Response(result, status=status.HTTP_200_OK)
-
-        except Exception as e:
-            return Response(
-                {"error": f"An error occurred: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+    except Exception as e:
+        return Response(
+            {"error": f"An error occurred: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def get_cart_products_by_user_id(request):
-    user_id = request.query_params.get('id')
+    # user_id = request.query_params.get('id')
+    user_id = request.user.id
 
     try:
         # SELECT product.*, app_cartitem.id AS cart_item_id FROM app_softwareproduct AS product JOIN app_cartitem ON product.id = app_cartitem.product_id WHERE app_cartitem.cart_id = (SELECT id FROM app_cart WHERE consumer_id=$1);
@@ -205,9 +176,10 @@ def get_cart_products_by_user_id(request):
 
 
 @api_view(['DELETE'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def delete_cart_items_by_user_id(request):
-    user_id = request.query_params.get('id')
+    # user_id = request.query_params.get('id')
+    user_id = request.user.id
 
     try:
         # DELETE FROM app_cartitem WHERE cart_id = (SELECT id FROM app_cart WHERE consumer_id = $1);
@@ -229,8 +201,10 @@ def delete_cart_items_by_user_id(request):
 
 
 @api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def get_library_item(request):
-    consumer_id = request.query_params.get('consumer_id')
+    # consumer_id = request.query_params.get('consumer_id')
+    consumer_id = request.user.id
     product_id = request.query_params.get('product_id')
 
     if not consumer_id or not product_id:
@@ -255,7 +229,6 @@ def get_library_item(request):
         ]
 
         return Response(results, status=status.HTTP_200_OK)
-
     except Exception as e:
         return Response(
             {"error": str(e)},
@@ -264,9 +237,10 @@ def get_library_item(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def get_library_items(request):
-    user_id = request.query_params.get('consumer_id')
+    # user_id = request.query_params.get('consumer_id')
+    user_id = request.user.id
 
     try:
         # SELECT product.*, app_library.added_date, app_genre.name FROM app_softwareproduct as product
@@ -293,10 +267,11 @@ def get_library_items(request):
 
 
 class ProductUserCart(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        consumer_id = request.query_params.get('consumer_id')
+        # consumer_id = request.query_params.get('consumer_id')
+        consumer_id = request.user.id
         product_id = request.query_params.get('product_id')
 
         try:
@@ -311,7 +286,6 @@ class ProductUserCart(APIView):
             ).values('id')
 
             return Response(cart_item_id, status=status.HTTP_200_OK)
-
         except SoftwareProduct.DoesNotExist:
             return Response(
                 {"error": "Product not found"},
@@ -320,11 +294,13 @@ class ProductUserCart(APIView):
 
     def post(self, request):
         # INSERT INTO app_cartitem("cart_id", "product_id") VALUES ((SELECT id FROM app_cart WHERE consumer_id = $1), $2);
+        consumer_id = request.user.id
+
         serializer = CartItemCreateSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        consumer_id = serializer.validated_data['consumer_id']
+        # consumer_id = serializer.validated_data['consumer_id']
         product_id = serializer.validated_data['product_id']
 
         try:
@@ -352,7 +328,7 @@ class ProductUserCart(APIView):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def get_rewiews_by_product_id(request):
     product_id = request.query_params.get('product_id')
     # SELECT R.*, C.first_name, C.last_name FROM app_review AS R JOIN app_consumer AS C ON R.consumer_id = C."id" WHERE R.product_id = $1;
@@ -367,10 +343,12 @@ def get_rewiews_by_product_id(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAuthenticated])
 def get_rewiew_by_product_id_and_user_id(request):
     product_id = request.query_params.get('product_id')
-    consumer_id = request.query_params.get('consumer_id')
+    # consumer_id = request.query_params.get('consumer_id')
+    consumer_id = request.user.id
+
     # SELECT R.*, C.first_name, C.last_name FROM app_review AS R JOIN app_consumer AS C ON R.consumer_id = C.id WHERE R.product_id = $1 AND R.consumer_id = $2;
 
     reviews = Review.objects.filter(product_id=product_id, consumer_id=consumer_id).values(
