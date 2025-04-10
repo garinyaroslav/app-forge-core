@@ -5,9 +5,9 @@ from .views.consumer_views import ConsumerView
 from .views.genre_views import GerneView
 from .views.software_views import SoftwareView, get_products_list, get_cart_products_by_user_id, delete_cart_items_by_user_id, get_library_item, get_library_items, ProductUserCart, get_rewiews_by_product_id
 from .views.review_views import ReviewView
-from .views.library_views import LibraryView
+from .views.library_views import LibraryView, add_my_library
 from .views.cart_views import CartView
-from .views.cart_item_views import CartItemView
+from .views.cart_item_views import CartItemView, delete_my_cart_item
 from .views.token_obtain_views import MyTokenObtainPairView
 
 urlpatterns = [
@@ -42,10 +42,12 @@ urlpatterns = [
 
     # library
     path('library/', LibraryView.as_view(), name='library'),
+    path('library/my/', add_my_library, name='add_in_my_lib'),
 
     # cart
     path('cart/', CartView.as_view(), name='cart'),
 
     # cart_item
     path('cart_item/', CartItemView.as_view(), name='cart_item'),
+    path('cart_item/my/', delete_my_cart_item, name='delete_my_cart_item'),
 ]

@@ -7,7 +7,7 @@ from django.db import models
 from ..serializers.software_serializers import SoftwareSerializer, CartItemCreateSerializer
 from ..models import SoftwareProduct, Cart, CartItem, Library, Review
 from rest_framework.decorators import api_view, permission_classes
-from django.db.models import F, OuterRef, Subquery
+from django.db.models import F, Q, OuterRef, Subquery
 
 
 class SoftwareView(APIView):
@@ -123,17 +123,45 @@ class SoftwareView(APIView):
 @permission_classes([IsAuthenticated])
 def get_products_list(request):
     try:
-        # SELECT product.*, genre.name FROM app_softwareproduct AS product JOIN app_genre AS genre ON genre.id = product.genre_id;
-        products = SoftwareProduct.objects.annotate(
-            genre_name=F('genre__name')
-        ).values(
-            'id', 'title', 'description', 'developer_name', 'rel_date',
-            'image', 'price', 'copies_sold', 'rating', 'genre_id', 'genre_name'
-        )
+        item_id = request.query_params.get("id")
+        sort_by = request.query_params.get('sort')
+        search_query = request.query_params.get('search', '').strip()
 
-        result = list(products)
+        if item_id:
+            try:
+                product = SoftwareProduct.objects.annotate(
+                    genre_name=F('genre__name')
+                ).values(
+                    'id', 'title', 'description', 'developer_name', 'rel_date',
+                    'image', 'price', 'copies_sold', 'rating', 'genre_id', 'genre_name'
+                ).get(id=item_id)
+                return Response(product, status=status.HTTP_200_OK)
+            except SoftwareProduct.DoesNotExist:
+                return Response({'error': 'Item not found'}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            products = SoftwareProduct.objects.annotate(
+                genre_name=F('genre__name')
+            ).values(
+                'id', 'title', 'description', 'developer_name', 'rel_date',
+                'image', 'price', 'copies_sold', 'rating', 'genre_id', 'genre_name'
+            )
 
-        return Response(result, status=status.HTTP_200_OK)
+            if search_query:
+                products = products.filter(
+                    Q(title__icontains=search_query) |
+                    Q(description__icontains=search_query)
+                )
+
+            if sort_by == 'copies_sold':
+                print(123)
+                products = products.order_by('-copies_sold')
+            elif sort_by == 'rel_date':
+                print(456)
+                products = products.order_by('-rel_date')
+
+            result = list(products)
+
+            return Response(result, status=status.HTTP_200_OK)
 
     except Exception as e:
         return Response(
@@ -163,7 +191,7 @@ def get_cart_products_by_user_id(request):
                 ).values('id')[:1]
             )
         ).values(
-            'id', 'title', 'description', 'developer_name', 'rel_date', 'image', 'copies_sold', 'rating', 'cart_item_id'
+            'id', 'title', 'description', 'developer_name', 'rel_date', 'image', 'copies_sold', 'rating', 'cart_item_id', 'price'
         )
 
         return Response(products_with_cart_items, status=status.HTTP_200_OK)
@@ -295,6 +323,7 @@ class ProductUserCart(APIView):
     def post(self, request):
         # INSERT INTO app_cartitem("cart_id", "product_id") VALUES ((SELECT id FROM app_cart WHERE consumer_id = $1), $2);
         consumer_id = request.user.id
+        print(consumer_id)
 
         serializer = CartItemCreateSerializer(data=request.data)
         if not serializer.is_valid():
@@ -334,7 +363,7 @@ def get_rewiews_by_product_id(request):
     # SELECT R.*, C.first_name, C.last_name FROM app_review AS R JOIN app_consumer AS C ON R.consumer_id = C."id" WHERE R.product_id = $1;
 
     reviews = Review.objects.filter(product_id=product_id).values(
-        'id', 'text_comment', 'rating', 'consumer__first_name', 'consumer__last_name'
+        'id', 'text_comment', 'rating', 'consumer__first_name', 'consumer__last_name', 'product_id'
     )
 
     reviews_data = list(reviews)

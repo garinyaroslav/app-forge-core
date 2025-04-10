@@ -20,5 +20,5 @@ class SoftwareSerializer(serializers.ModelSerializer):
 
 
 class CartItemCreateSerializer(serializers.Serializer):
-    consumer_id = serializers.IntegerField()
+    # consumer_id = serializers.IntegerField()
     product_id = serializers.IntegerField()

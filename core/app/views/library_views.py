@@ -1,10 +1,12 @@
 
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from ..serializers.library_serializers import LibrarySerializer
-from ..models import Library
+from rest_framework.decorators import api_view, permission_classes
+from ..models import Library, SoftwareProduct
+from django.utils import timezone
 
 
 class LibraryView(APIView):
@@ -94,3 +96,39 @@ class LibraryView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def add_my_library(request):
+    user = request.user
+    product_id = request.data.get('product_id')
+
+    if not product_id:
+        return Response(
+            {"error": "product_id is required in the request body"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        product = SoftwareProduct.objects.get(id=product_id)
+    except SoftwareProduct.DoesNotExist:
+        return Response(
+            {"error": "Product not found"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+
+    if Library.objects.filter(consumer=user, product=product).exists():
+        return Response(
+            {"error": "This product is already in your library"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    library_item = Library.objects.create(
+        consumer=user,
+        product=product,
+        added_date=timezone.now()
+    )
+
+    serializer = LibrarySerializer(library_item)
+    return Response(serializer.data, status=status.HTTP_201_CREATED)
