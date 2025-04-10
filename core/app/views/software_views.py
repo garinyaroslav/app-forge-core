@@ -8,6 +8,7 @@ from ..serializers.software_serializers import SoftwareSerializer, CartItemCreat
 from ..models import SoftwareProduct, Cart, CartItem, Library, Review
 from rest_framework.decorators import api_view, permission_classes
 from django.db.models import F, Q, OuterRef, Subquery
+from django.utils import timezone
 
 
 class SoftwareView(APIView):
@@ -203,31 +204,6 @@ def get_cart_products_by_user_id(request):
         )
 
 
-@api_view(['DELETE'])
-@permission_classes([IsAuthenticated])
-def delete_cart_items_by_user_id(request):
-    # user_id = request.query_params.get('id')
-    user_id = request.user.id
-
-    try:
-        # DELETE FROM app_cartitem WHERE cart_id = (SELECT id FROM app_cart WHERE consumer_id = $1);
-        cart_subquery = Cart.objects.filter(consumer_id=user_id).values('id')
-
-        deleted_count, _ = CartItem.objects.filter(
-            cart_id__in=Subquery(cart_subquery)).delete()
-
-        return Response(
-            {"message": f"Deleted {deleted_count} cart items"},
-            status=status.HTTP_200_OK
-        )
-
-    except Exception as e:
-        return Response(
-            {"error": str(e)},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_library_item(request):
@@ -387,3 +363,61 @@ def get_rewiew_by_product_id_and_user_id(request):
     reviews_data = list(reviews)
 
     return Response(reviews_data, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def buy(request):
+    user = request.user
+
+    try:
+        # 1. Получаем все товары из корзины пользователя
+        cart = Cart.objects.filter(consumer=user).first()
+        if not cart:
+            return Response(
+                {"error": "Cart not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        cart_items = CartItem.objects.filter(cart=cart)
+        if not cart_items.exists():
+            return Response(
+                {"error": "No items in cart"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # 2. Переносим товары в библиотеку и увеличиваем copies_sold
+        added_products = []
+        for item in cart_items:
+            product = item.product
+
+            # Проверяем, нет ли уже этого продукта в библиотеке
+            if not Library.objects.filter(consumer=user, product=product).exists():
+                Library.objects.create(
+                    consumer=user,
+                    product=product,
+                    added_date=timezone.now()
+                )
+                added_products.append(product.id)
+
+            # Увеличиваем количество проданных копий
+            product.copies_sold = models.F('copies_sold') + 1
+            product.save()
+
+        # 3. Удаляем товары из корзины
+        deleted_count, _ = cart_items.delete()
+
+        return Response(
+            {
+                "message": f"Purchased {deleted_count} items",
+                "added_to_library": added_products,
+                "deleted_from_cart": deleted_count
+            },
+            status=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
