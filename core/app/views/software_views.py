@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from django.db import models
 from ..serializers.software_serializers import SoftwareSerializer, CartItemCreateSerializer
+from ..serializers.review_serializers import ReviewSerializer
 from ..models import SoftwareProduct, Cart, CartItem, Library, Review
 from rest_framework.decorators import api_view, permission_classes
 from django.db.models import F, Q, OuterRef, Subquery
@@ -347,22 +348,48 @@ def get_rewiews_by_product_id(request):
     return Response(reviews_data, status=status.HTTP_200_OK)
 
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def get_rewiew_by_product_id_and_user_id(request):
-    product_id = request.query_params.get('product_id')
-    # consumer_id = request.query_params.get('consumer_id')
-    consumer_id = request.user.id
+class SoftwareReviewView(APIView):
+    permission_classes = [IsAuthenticated]
 
-    # SELECT R.*, C.first_name, C.last_name FROM app_review AS R JOIN app_consumer AS C ON R.consumer_id = C.id WHERE R.product_id = $1 AND R.consumer_id = $2;
+    def get(self, request):
+        product_id = request.query_params.get('product_id')
+        # consumer_id = request.query_params.get('consumer_id')
+        consumer_id = request.user.id
 
-    reviews = Review.objects.filter(product_id=product_id, consumer_id=consumer_id).values(
-        'id', 'text_comment', 'rating', 'consumer__first_name', 'consumer__last_name'
-    )
+        # SELECT R.*, C.first_name, C.last_name FROM app_review AS R JOIN app_consumer AS C ON R.consumer_id = C.id WHERE R.product_id = $1 AND R.consumer_id = $2;
 
-    reviews_data = list(reviews)
+        reviews = Review.objects.filter(product_id=product_id, consumer_id=consumer_id).values(
+            'id', 'text_comment', 'rating', 'consumer__first_name', 'consumer__last_name'
+        )
 
-    return Response(reviews_data, status=status.HTTP_200_OK)
+        reviews_data = list(reviews)
+
+        return Response(reviews_data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        request.data['consumer'] = request.user.id
+
+        serializer = ReviewSerializer(data=request.data)
+        if serializer.is_valid():
+            product_id = request.data.get('product')
+            try:
+                product = SoftwareProduct.objects.get(pk=product_id)
+            except SoftwareProduct.DoesNotExist:
+                return Response(
+                    {"error": "Product not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            if Review.objects.filter(consumer=request.user, product=product).exists():
+                return Response(
+                    {"error": "You have already reviewed this product"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
