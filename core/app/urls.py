@@ -7,6 +7,7 @@ from .views.software_views import SoftwareView, buy, get_products_list, Software
 from .views.review_views import ReviewView
 from .views.library_views import LibraryView
 from .views.cart_views import CartView
+from .views.profile_views import ProfileViews
 from .views.cart_item_views import CartItemView, delete_my_cart_item
 from .views.token_obtain_views import MyTokenObtainPairView
 
@@ -18,6 +19,9 @@ urlpatterns = [
 
     # consumer
     path('consumer/', ConsumerView.as_view(), name='consumer'),
+
+    # profile
+    path('profile/', ProfileViews.as_view(), name='profile'),
 
     # genre
     path('genre/', GerneView.as_view(), name='genre'),
