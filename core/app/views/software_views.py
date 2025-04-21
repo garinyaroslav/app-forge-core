@@ -12,6 +12,8 @@ from django.db.models import F, Q, OuterRef, Subquery
 from django.utils import timezone
 from openpyxl import Workbook
 from django.http import HttpResponse
+from django.core.mail import send_mail
+from django.conf import settings
 
 
 class SoftwareView(APIView):
@@ -400,7 +402,6 @@ def buy(request):
     user = request.user
 
     try:
-        # 1. Получаем все товары из корзины пользователя
         cart = Cart.objects.filter(consumer=user).first()
         if not cart:
             return Response(
@@ -415,12 +416,15 @@ def buy(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 2. Переносим товары в библиотеку и увеличиваем copies_sold
         added_products = []
+        products_list = []
+        total_price = 0
+
         for item in cart_items:
             product = item.product
+            products_list.append(product.title)
+            total_price += float(product.price)
 
-            # Проверяем, нет ли уже этого продукта в библиотеке
             if not Library.objects.filter(consumer=user, product=product).exists():
                 Library.objects.create(
                     consumer=user,
@@ -429,12 +433,28 @@ def buy(request):
                 )
                 added_products.append(product.id)
 
-            # Увеличиваем количество проданных копий
             product.copies_sold = models.F('copies_sold') + 1
             product.save()
 
-        # 3. Удаляем товары из корзины
         deleted_count, _ = cart_items.delete()
+
+        subject = 'Подтверждение покупки'
+        message = (
+            f'Уважаемый(ая) {user.first_name} {user.last_name},\n\n'
+            f'Благодарим вас за покупку в нашем магазине!\n\n'
+            f'Вы приобрели следующие товары:\n'
+            f'{", ".join(products_list)}\n\n'
+            f'Общая сумма покупки: {total_price:.2f} руб.\n\n'
+            f'Теперь эти товары доступны в вашей библиотеке.\n\n'
+            f'С уважением,\nКоманда магазина AppForge'
+        )
+        send_mail(
+            subject,
+            message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+        )
 
         return Response(
             {
