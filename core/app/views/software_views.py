@@ -10,6 +10,8 @@ from ..models import SoftwareProduct, Cart, CartItem, Library, Review
 from rest_framework.decorators import api_view, permission_classes
 from django.db.models import F, Q, OuterRef, Subquery
 from django.utils import timezone
+from openpyxl import Workbook
+from django.http import HttpResponse
 
 
 class SoftwareView(APIView):
@@ -448,3 +450,68 @@ def buy(request):
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def export_products_to_excel(request):
+    products = SoftwareProduct.objects.annotate(
+        review_count=models.Count('review', distinct=True),
+        in_carts_count=models.Count('cartitem', distinct=True)
+    ).all()
+
+    genre = request.query_params.get('genre')
+    if genre:
+        products = products.filter(genre__name__icontains=genre)
+
+    min_price = request.query_params.get('min_price')
+    if min_price:
+        try:
+            products = products.filter(price__gte=float(min_price))
+        except ValueError:
+            pass
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Software Products"
+
+    headers = [
+        "ID", "Название", "Описание", "Разработчик",
+        "Дата выпуска", "Цена", "Продано копий",
+        "Рейтинг", "Жанр",
+        "Кол-во отзывов",
+        "В корзинах"
+    ]
+    ws.append(headers)
+
+    for product in products:
+        ws.append([
+            product.id,
+            product.title,
+            product.description,
+            product.developer_name,
+            product.rel_date.strftime("%Y-%m-%d"),
+            float(product.price),
+            product.copies_sold,
+            float(product.rating),
+            product.genre.name if product.genre else "",
+            product.review_count,
+            product.in_carts_count
+        ])
+
+    column_widths = {
+        'A': 10, 'B': 25, 'C': 40, 'D': 20,
+        'E': 15, 'F': 10, 'G': 15,
+        'H': 10, 'I': 15, 'J': 15, 'K': 15
+    }
+
+    for col, width in column_widths.items():
+        ws.column_dimensions[col].width = width
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    response["Content-Disposition"] = "attachment; filename=software_products_export.xlsx"
+    wb.save(response)
+
+    return response

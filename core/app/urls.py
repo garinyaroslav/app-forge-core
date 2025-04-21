@@ -3,7 +3,7 @@ from django.urls import path
 from .views.register_views import RegisterView
 from .views.consumer_views import ConsumerView
 from .views.genre_views import GerneView
-from .views.software_views import SoftwareView, buy, get_products_list, SoftwareReviewView, get_cart_products_by_user_id, get_library_item, get_library_items, ProductUserCart, get_rewiews_by_product_id
+from .views.software_views import SoftwareView, export_products_to_excel, buy, get_products_list, SoftwareReviewView, get_cart_products_by_user_id, get_library_item, get_library_items, ProductUserCart, get_rewiews_by_product_id
 from .views.review_views import ReviewView
 from .views.library_views import LibraryView
 from .views.cart_views import CartView
@@ -41,6 +41,7 @@ urlpatterns = [
     path('software/review/', SoftwareReviewView.as_view(),
          name='software_review'),
     path('software/buy/', buy, name='buy'),
+    path('software/export/', export_products_to_excel, name="export_products"),
 
     # review
     path('review/', ReviewView.as_view(), name='review'),
