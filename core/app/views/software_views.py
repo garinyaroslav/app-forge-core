@@ -6,7 +6,7 @@ from rest_framework import status
 from django.db import models
 from ..serializers.software_serializers import SoftwareSerializer, CartItemCreateSerializer
 from ..serializers.review_serializers import ReviewSerializer
-from ..models import SoftwareProduct, Cart, CartItem, Library, Review
+from ..models import SoftwareProduct, Cart, CartItem, Library, Review, Genre
 from rest_framework.decorators import api_view, permission_classes
 from django.db.models import F, Q, OuterRef, Subquery
 from django.utils import timezone
@@ -14,6 +14,7 @@ from openpyxl import Workbook
 from django.http import HttpResponse
 from django.core.mail import send_mail
 from django.conf import settings
+from django.db.models import Sum
 
 
 class SoftwareView(APIView):
@@ -535,3 +536,21 @@ def export_products_to_excel(request):
     wb.save(response)
 
     return response
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def genre_sales_stats(request):
+    genres = Genre.objects.annotate(
+        total_sales=Sum('products__copies_sold')
+    ).order_by('total_sales')
+
+    data = [
+        {
+            'genre': genre.name,
+            'total_sales': genre.total_sales or 0
+        }
+        for genre in genres
+    ]
+
+    return Response(data)
