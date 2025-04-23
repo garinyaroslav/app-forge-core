@@ -543,7 +543,7 @@ def export_products_to_excel(request):
 def genre_sales_stats(request):
     genres = Genre.objects.annotate(
         total_sales=Sum('products__copies_sold')
-    ).order_by('total_sales')
+    ).order_by('-total_sales')
 
     data = [
         {
