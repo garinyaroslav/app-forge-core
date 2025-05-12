@@ -13,6 +13,7 @@ from django.utils import timezone
 from openpyxl import Workbook
 from django.http import HttpResponse
 from django.core.mail import send_mail
+from smtplib import SMTPException
 from django.conf import settings
 from django.db.models import Sum
 
@@ -449,13 +450,23 @@ def buy(request):
             f'Теперь эти товары доступны в вашей библиотеке.\n\n'
             f'С уважением,\nКоманда магазина AppForge'
         )
-        send_mail(
-            subject,
-            message,
-            settings.DEFAULT_FROM_EMAIL,
-            [user.email],
-            fail_silently=False,
-        )
+        try:
+            send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                fail_silently=False,
+            )
+        except SMTPException as e:
+            return Response(
+                {
+                    "message": f"Purchased {deleted_count} items, Failed to send email: {str(e)}",
+                    "added_to_library": added_products,
+                    "deleted_from_cart": deleted_count
+                },
+                status=status.HTTP_200_OK
+            )
 
         return Response(
             {
