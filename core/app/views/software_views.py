@@ -16,6 +16,7 @@ from django.core.mail import send_mail
 from smtplib import SMTPException
 from django.conf import settings
 from django.db.models import Sum
+from django.db.models.functions import Coalesce
 
 
 class SoftwareView(APIView):
@@ -553,13 +554,13 @@ def export_products_to_excel(request):
 @permission_classes([IsAuthenticated])
 def genre_sales_stats(request):
     genres = Genre.objects.annotate(
-        total_sales=Sum('products__copies_sold')
+        total_sales=Coalesce(Sum('products__copies_sold'), 0)
     ).order_by('-total_sales')
 
     data = [
         {
             'genre': genre.name,
-            'total_sales': genre.total_sales or 0
+            'total_sales': genre.total_sales
         }
         for genre in genres
     ]
