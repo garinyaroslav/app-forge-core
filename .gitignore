@@ -1,1 +1,82 @@
 # Created by venv; see https://docs.python.org/3/library/venv.html
+
+# Django
+*.log
+*.pot
+*.pyc
+__pycache__/
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+bin/
+
+# Виртуальные окружения Python
+venv/
+.env/
+.venv/
+env/
+ENV/
+
+# Кеш pip
+.pip-cache/
+
+# Папка site-packages (если вдруг копируется в проект)
+lib/
+lib64/
+
+# Poetry / Pipenv
+poetry.lock  # (но лучше коммитить, если используете Poetry)
+Pipfile.lock # (но лучше коммитить, если используете Pipenv)
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Node.js
+node_modules/
+
+# Coverage
+.coverage
+htmlcov/
+
+# Build and distribution
+build/
+dist/
+*.egg-info/
+*.egg
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Database migrations (можно раскомментировать, если не хотите коммитить миграции)
+# migrations/
+
+# Python cache
+.python-version
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# Environment files
+.env
+.env.local
+.env.dev
+.env.prod
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Testing
+.pytest_cache/
+
+# Static files (если собираетесь их генерировать)
+/staticfiles/
